@@ -1,42 +1,15 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
-using System.Globalization;
 using System.Linq;
-using System.Runtime.InteropServices;
-using System.Security.Cryptography.X509Certificates;
 
 namespace VisualDomino {
 
 	[SuppressMessage("ReSharper", "InconsistentNaming")]
 	internal class Bot_Kuchinskas : Player {
-		public const string PlayerName = "Medium_bot";
-		private static List<MTable.SBone> _lHand;
-
-
-		//Инициализация игрока
-		public static void Initialize () {
-			_lHand = new List<MTable.SBone>();
-		}
-
-		//Вывод на экран
-		public static void PrintAll () {
-			MTable.PrintAll(_lHand);
-		}
-
-		//Возвращает количество костей домино в руке
-		public static int GetCount () {
-			return _lHand.Count;
-		}
-
-
-
-		//Добавляет кость домино в руку
-		public static void AddItem (MTable.SBone sb) {
-			_lHand.Add(sb);
-		}
-
-		public static void GenerateDomino (List<MTable.SBone> NullDomino) {
+		public new const string PlayerName = "Medium_bot";
+		
+		public void GenerateDomino (List<MTable.SBone> NullDomino) {
 			List<MTable.SBone> AllDomino = new List<MTable.SBone>();
 
 			for (ushort i = 1; i <= 6; i++) {
@@ -51,32 +24,11 @@ namespace VisualDomino {
 
 			}
 		}
-
-		//Возвращает сумму очков на костях в руке
-		public static int GetScore () {
-			//Количество очков
-			int iScore = 0;
-			//Если в руке дупль 0/0 возвращаем 25 очков
-			if (_lHand.Count == 1) {
-				//Проверка на нулики
-				if (_lHand[0].First == 0 && _lHand[0].Second == 0)
-					//Возвращение очков
-					return 25;
-			}
-
-			//Подсчитываем сумму очков на костях
-			foreach (MTable.SBone sbone in _lHand)
-				iScore += sbone.First + sbone.Second;
-
-			//Возвращение очков
-			return iScore;
-		}
-
 		//Сделать ход
-		public static int _i = 0;
+		public int _i = 0;
 
 		//Список всех доминошек, существующих в игре
-		public static List<MTable.SBone> AllDomino = new List<MTable.SBone>();
+		public List<MTable.SBone> AllDomino = new List<MTable.SBone>();
 
 		public override bool MakeStep (out MTable.SBone sb, out bool end) {
 			_i++;
@@ -103,30 +55,30 @@ namespace VisualDomino {
 			List<Tuple<MTable.SBone, bool, int>> HandDomino = new List<Tuple<MTable.SBone, bool, int>>();
 			//Просматриваем все домино в руке
 
-			for (int i = 0; i < _lHand.Count; i++) {
+			for (int i = 0; i < lHand.Count; i++) {
 				//Если её можно поставить слева
-				if (_lHand[i].Second == sLeft.First || _lHand[i].First == sLeft.First) {
+				if (lHand[i].Second == sLeft.First || lHand[i].First == sLeft.First) {
 					end = false;
 					int k = 0;
 					for (int j = 0; j < AllDomino.Count; j++) {
-						if ((AllDomino[j].First == _lHand[i].First) || (AllDomino[j].Second == _lHand[i].Second)) {
+						if ((AllDomino[j].First == lHand[i].First) || (AllDomino[j].Second == lHand[i].Second)) {
 							k++;
 						}
 					}
-					HandDomino.Add(Tuple.Create(_lHand[i], end, k));
+					HandDomino.Add(Tuple.Create(lHand[i], end, k));
 					//    end = false; слева
 
 				}
 				//Если её можно поставить справа
-				if (_lHand[i].Second == sRight.Second || _lHand[i].First == sRight.Second) {
+				if (lHand[i].Second == sRight.Second || lHand[i].First == sRight.Second) {
 					int k = 0;
 					for (int j = 0; j < AllDomino.Count; j++) {
-						if ((AllDomino[j].First == _lHand[i].First) || (AllDomino[j].Second == _lHand[i].Second)) {
+						if ((AllDomino[j].First == lHand[i].First) || (AllDomino[j].Second == lHand[i].Second)) {
 							k++;
 						}
 					}
 					end = true;
-					HandDomino.Add(Tuple.Create(_lHand[i], end, k));
+					HandDomino.Add(Tuple.Create(lHand[i], end, k));
 					// end = true; справа
 				}
 			}
@@ -151,7 +103,7 @@ namespace VisualDomino {
 				}
 				if (min != 10) {
 					HandDomino.RemoveAt(b);
-					_lHand.Remove(sb);
+					lHand.Remove(sb);
 					return true;
 				}
 			}
@@ -177,7 +129,7 @@ namespace VisualDomino {
 					return true;
 				}
 				//Если её нельзя положить на стол, то кладем её в руку
-				_lHand.Add(sbNew);
+				lHand.Add(sbNew);
 			}
 
 

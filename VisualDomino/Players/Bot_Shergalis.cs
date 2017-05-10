@@ -8,13 +8,9 @@ namespace VisualDomino {
 	[SuppressMessage("ReSharper", "InconsistentNaming")]
 
 	class Bot_Shergalis : Player {
-		public const string PlayerName = "Джефф Дин";
+		public new const string PlayerName = "Джефф Дин";
 
-		public static String Name() {
-			return PlayerName;
-		}
-
-		private static int[] probs;
+		private int[] probs;
 
 		public static double KOEFF_FOR_ENEMIES_MOVE_POSSIB = 1.0;    // Для количество доминошек, миеющих такое количество точек
 		public static double KOEFF_FOR_ASSURED_MOVES_COUNT = 0.5;   // Для количества ходов, которые можно сделать
@@ -24,24 +20,8 @@ namespace VisualDomino {
 		public static double KOEFF_FOR_NEXT_MOVE_WEIGHT_DECREASE = 0.3;     // Для веса просчитываемого следующего и послеследующего хода
 		public static double EMPTY_WEIGHT = 10;      // Вес пустой доминошки, определяющий скорость избавления от неё
 
+		private int leftest, rightest;   // Содержат два возможных хода
 
-		private static List<MTable.SBone> lHand;
-		private static int leftest, rightest;   // Содержат два возможных хода
-
-		// Неизменные функции
-		public static void Initialize () { lHand = new List<MTable.SBone>(); }
-		public static void PrintAll () { MTable.PrintAll(lHand); }
-		public static int GetCount () { return lHand.Count; }
-		// Для разработки
-		public static void AddItem (MTable.SBone sb) { lHand.Add(sb); }
-
-		public static int GetScore () { // Сумма очков на руке
-			int n = 0;
-			foreach (MTable.SBone bone in lHand)
-				n += bone.First + bone.Second;
-
-			return (lHand.Count == 1 && n == 0) ? 25 : n;
-		}
 
 		// Сделать ход: возвращает false, если ход сделать нельзя; sb - чем ходить, End: true = направо
 		public override bool MakeStep (out MTable.SBone sb, out bool End) {
@@ -73,7 +53,7 @@ namespace VisualDomino {
 			// Засовываем кости в обёртку
 			var sTiles = new List<STiles>();
 			foreach (var tile in Variants)
-				sTiles.Add(new STiles(tile, probs));
+				sTiles.Add(new STiles(tile, probs, leftest, rightest));
 
 			var cst = new CompSTiles<STiles>(); // Позволяет сортировать обёрнутые доминошки по их весу
 
@@ -117,7 +97,7 @@ namespace VisualDomino {
 		}
 
 		// Проверка возможности сделать ещё несколько ходов.
-		public static double CheckPOSSIBOfNextMoves (List<MTable.SBone> hand, int _leftest, int _rightest, double Weight, int N) {
+		public double CheckPOSSIBOfNextMoves (List<MTable.SBone> hand, int _leftest, int _rightest, double Weight, int N) {
 			Weight += 7;
 			N++;
 			if (N == 2) return Weight; // Больше двух не имеет смысла
@@ -139,14 +119,14 @@ namespace VisualDomino {
 			return Weight + KOEFF_FOR_NEXT_MOVE_WEIGHT_DECREASE * max;
 		}
 
-		public static List<MTable.SBone> ListWithout (List<MTable.SBone> list, MTable.SBone b) {
+		public List<MTable.SBone> ListWithout (List<MTable.SBone> list, MTable.SBone b) {
 			List<MTable.SBone> tmp = new List<MTable.SBone>();
 			tmp.AddRange(list);
 			tmp.Remove(b);
 			return tmp;
 		}
 
-		public static bool DecideSide (MTable.SBone sb, int leftest, int rightest, int[] probs) {
+		public bool DecideSide (MTable.SBone sb, int leftest, int rightest, int[] probs) {
 			if (sb.First == leftest && sb.Second == rightest)   // Если можно и так, и так
 				return probs[sb.First] >= probs[sb.Second]; // Чтобы у наружней был больше шанс не оказаться в руке соперника
 			else if (sb.First == rightest && sb.Second == leftest) // то же, но наоборот
@@ -160,7 +140,7 @@ namespace VisualDomino {
 		}
 
 		// На основе вывода этого метода делается вывод о том, какой костью соперник с наименьшей вероятностью обладает. Чем больше число, тем меньше вероятность.
-		private static int[] CalculateReversedProbabilitiesOfEnemyHavingEachCountsOfSpotsOnTilesInHand () {
+		private int[] CalculateReversedProbabilitiesOfEnemyHavingEachCountsOfSpotsOnTilesInHand () {
 			int[] reversedProbabilities = new int[7];
 
 			CountSpots(ref reversedProbabilities, MTable.GetGameCollection());
@@ -169,7 +149,7 @@ namespace VisualDomino {
 			return reversedProbabilities;
 		}
 
-		public static void CountSpots (ref int[] reversedProbabilities, List<MTable.SBone> list) {
+		public void CountSpots (ref int[] reversedProbabilities, List<MTable.SBone> list) {
 			foreach (var tile in list) {
 				int a = tile.First, b = tile.Second;
 				reversedProbabilities[a]++;
@@ -178,7 +158,7 @@ namespace VisualDomino {
 		}
 
 		// Получение количества очков по костям, лежащим на столе.
-		private static int GetSBoneListScore (List<MTable.SBone> table) {
+		private int GetSBoneListScore (List<MTable.SBone> table) {
 			int score = 0;
 			foreach (var tile in table) {
 				score += TileScore(tile);
@@ -187,12 +167,12 @@ namespace VisualDomino {
 		}
 
 		// получение суммы очков у переданной кости
-		private static int TileScore (MTable.SBone tile) {
+		private int TileScore (MTable.SBone tile) {
 			return tile.First + tile.Second;
 		}
 
 		// Возвращает список всех костей, которыми можно походить на данном ходе, заодно поворачивая их.
-		private static List<MTable.SBone> GetVariantsForStep () {
+		private List<MTable.SBone> GetVariantsForStep () {
 			var s = new List<MTable.SBone>();
 
 			foreach (var tile in lHand) {
@@ -203,7 +183,7 @@ namespace VisualDomino {
 		}
 
 		// Возвращает количество костей на руке, содержащих переданное количество точек
-		private static int CountOfTilesWith (int n) {
+		private int CountOfTilesWith (int n) {
 			int count = 0;
 			foreach (var tile in lHand) {
 				if (tile.First == n || tile.Second == n) {
@@ -213,7 +193,7 @@ namespace VisualDomino {
 			return count;
 		}
 
-		private static List<MTable.SBone> GetTilesWith (int n) {
+		private List<MTable.SBone> GetTilesWith (int n) {
 			var s = new List<MTable.SBone>();
 			foreach (var tile in lHand) {
 				if (tile.First == n || tile.Second == n) {
@@ -223,7 +203,7 @@ namespace VisualDomino {
 			return s;
 		}
 
-		private static void RemoveTile (MTable.SBone tile) { // Удаляет переданную кость из руки
+		private void RemoveTile (MTable.SBone tile) { // Удаляет переданную кость из руки
 			for (int i = 0; i < lHand.Count; i++) {
 				if (lHand[i].First == tile.First && lHand[i].Second == tile.Second) {
 					lHand.Remove(lHand[i]);
@@ -232,14 +212,14 @@ namespace VisualDomino {
 			}
 		}
 
-		public class STiles {   // Обёртка для SBone, хранящая вес доминошки и позволяющая сортировать список из STiles по нему.
+		private class STiles {   // Обёртка для SBone, хранящая вес доминошки и позволяющая сортировать список из STiles по нему.
 			public double
 				wSpots,    // количество точек на доминошке (или 6, если 0)
 				wEnemyHasnt,    // вероятность того, что соперник должен будет добрать доминошки
 				wNextPoss;    // балл для возможности и результативности следующих ходов
 			public MTable.SBone tile;
 
-			public STiles (MTable.SBone tile, int[] vals) {
+			public STiles (MTable.SBone tile, int[] vals, int leftest, int rightest) {
 				this.tile = tile;
 				int sc1 = vals[tile.First],
 					sc2 = vals[tile.Second];

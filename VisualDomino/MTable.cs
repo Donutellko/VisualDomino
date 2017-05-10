@@ -4,19 +4,17 @@ using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Windows.Forms;
 
 namespace VisualDomino {
 	[SuppressMessage("ReSharper", "InconsistentNaming")]
 	[SuppressMessage("ReSharper", "JoinDeclarationAndInitializer")]
 	[SuppressMessage("ReSharper", "TooWideLocalVariableScope")]
 
-	class MTable {
-		public static Player MFPlayer, MSPlayer;
+	public class MTable {
+		public static Player first, second;
 
-		public const bool PrintOutput = false; // Для ускорения тестирования
-		public static int COUNT_OF_MATCHES_FOR_TEST = 10000;
-
-		static double sum1 = 0, sum2 = 0;
+		public static double Score1 = 0, Score2 = 0;
 
 		public const int conStartCount = 7;// количество доминошек в руке в начале игры
 
@@ -24,214 +22,103 @@ namespace VisualDomino {
 		private static List<SBone> lGame;//Текущий расклад на столе
 		private static int intGameStep = 1;// Номер хода игры
 		private static int intLastTaken, intTaken;// Количество взятых доминушек игроком за прошлый \ текущий ход 
-		private static Random rnd;// Генератор случайных чисел
+		private static Random rnd = new Random();// Генератор случайных чисел
+
+		private static bool prevStepIsDone;
+
+		private static int stepsCount = 0;
+
 		public enum EFinish { Play = 0, First, Second, Lockdown };  // Состояние игры // играем, выиграл первый, выиграл второй, рыба
 
-		static void MMain () {
-			rnd = new Random();
-			Console.Write("Что-нибудь, чтобы задать значения вручную: ");
+		public static List<State> states = new List<State>(29);
+		
 
-			if (Console.ReadLine().Length > 0) {
-				Console.Write("Количество турниров = "); String tmp0 = Console.ReadLine();
-				int t = 0;
-				if (Int32.TryParse(tmp0, out t)) COUNT_OF_MATCHES_FOR_TEST = t * 20;
-			}
+		public static List<State> RunRound (bool firstIsFirst) {
+			Initialize();
 
+			states = new List<State>(29);
+			
+			GetHands();
 
-			double wins1 = 0, wins2 = 0;
+			Score1 = first.GetScore();
+			Score2 = second.GetScore();
 
-			for (int i = 0; i <= COUNT_OF_MATCHES_FOR_TEST; i++) {
-				if (i % 20 == 0 && i > 0) {
-					if (sum1 < sum2) wins1++;
-					else if (sum1 > sum2) wins2++;
+			while (MakeNextStep(!(firstIsFirst = !firstIsFirst))) ;
 
-					sum1 = 0;
-					sum2 = 0;
+			return states;
+		}
 
-					Console.WriteLine("Турнир " + (i / 20) + ": " + Math.Round(100 * wins1 / (wins1 + wins2), 1));
-				}
+		private static bool MakeNextStep (bool isFirstsStep) {
+			Player current = isFirstsStep ? first : second;
 
+			EFinish efFinish = EFinish.Play; // признак окончания игры
 
-				lBoneyard?.Clear();
-				lGame?.Clear();
-				intLastTaken = 0;
-				intTaken = 0;
+			int intBoneyard = 0; // количество доминушек в базаре, нужно для определения корректности хода игрока
+			SBone sb; // Чем ходить
+			bool blnEnd; // куда ходить
 
-
-				bool blnFirst; // кто сейчас ходит
-				bool blnFRes, blnSRes; // результат текущего хода игроков =TRUE, если ход состоялся
-
-				EFinish efFinish = EFinish.Play; // признак окончания игры
-				string[] arrFinishMsg = { "---", "Победил первый игрок!", "Победил второй игрок!", "Рыба!" }; // сообщения о результате игры
-
-				int intBoneyard = 0; // количество доминушек в базаре, нужно для определения корректности хода игрока
-				SBone sb; // Чем ходить
-				bool blnEnd; // куда ходить
-
-				// Инициализация игры
-				Initialize();
-				// Раздача доминошек в начале игры
-				GetHands();
-				// первая доминушка - первая из базара
-				// определяем случайным образом доминушку из базара
+			if (stepsCount == 0) {
 				int intN = rnd.Next(lBoneyard.Count - 1);
 				lGame.Add(lBoneyard[intN]);
 				lBoneyard.RemoveAt(intN);
+			}
+			stepsCount++;
 
+			intBoneyard = lBoneyard.Count;
 
-				// вывод на экран начального состояния игры
-				if (PrintOutput) {
-					Console.WriteLine("*************ИГРА НАЧАЛАСЬ*********************");
-					Console.ForegroundColor = ConsoleColor.Yellow;
-					Console.WriteLine();
-					Console.WriteLine("*************Шаг #0");
-					Console.ForegroundColor = ConsoleColor.White;
+			intLastTaken = intTaken;
+			intTaken = 0;
+			// ход первого игрока
+			intBoneyard = lBoneyard.Count;
+			bool stepIsDone = current.MakeStep(out sb, out blnEnd);
+			
+			states.Add(new State(lGame, first.lHand, second.lHand, (int)Score1, (int)Score2));
+
+			// если ход сделан
+			if (stepIsDone) {
+				// пристраиваем доминушку
+				if (SetBone(sb, blnEnd) == false) {
 					PrintAll(lGame);
-					Console.ForegroundColor = ConsoleColor.Cyan;
-					Console.WriteLine("ИГРОК " + MFPlayer.PlayerName);
-					MFPlayer.PrintAll();
-					Console.ForegroundColor = ConsoleColor.Magenta;
-					Console.WriteLine("ИГРОК " + MSPlayer.PlayerName);
-					MSPlayer.PrintAll();
-					//Console.ReadKey();
+					Console.WriteLine(
+						"!!!!!!!!Нельзя пристроить кость {0}:{1} ({3})!!!!!! {2}", sb.First, sb.Second, first.PlayerName,
+						!blnEnd ? "слева" + lGame[0].First + ":" + lGame[0].Second : "справа " + lGame[lGame.Count - 1].First + ":" + lGame[lGame.Count - 1].Second);
+					Console.Beep(2000, 1000);
+					Console.ReadLine();
+					return false;
 				}
-
-				blnFRes = true;
-				blnSRes = true;
-				// Первым ходит первый игрок
-				blnFirst = i % 20 < 10; // COUNT_OF_MATCHES_FOR_TEST % 20;
-
-				intBoneyard = lBoneyard.Count;
-				//-----------------------------------------------------------------
-				// ИГРА
-				do {
-					Console.ForegroundColor = ConsoleColor.Yellow;
-					Console.ForegroundColor = ConsoleColor.White;
-
-					// кто ходит? ---- Ходит первый игрок
-					if (blnFirst) {
-						if (PrintOutput) {
-							Console.ForegroundColor = ConsoleColor.Yellow;
-							Console.WriteLine();
-							Console.WriteLine("*************Шаг #" + intGameStep + " " + MFPlayer.PlayerName);
-							Console.ForegroundColor = ConsoleColor.White;
-						}
-
-						// количество взятых доминушек
-						intLastTaken = intTaken;
-						intTaken = 0;
-						// ход первого игрока
-						intBoneyard = lBoneyard.Count;
-						blnFRes = MFPlayer.MakeStep(out sb, out blnEnd);
-
-						// если ход сделан
-						if (blnFRes) {
-							// пристраиваем доминушку
-							if (SetBone(sb, blnEnd) == false) {
-								PrintAll(lGame);
-								Console.WriteLine(
-									"!!!!!!!!Нельзя пристроить кость {0}:{1} ({3})!!!!!! {2}", sb.First, sb.Second, MFPlayer.PlayerName,
-									!blnEnd ? "слева" + lGame[0].First + ":" + lGame[0].Second : "справа " + lGame[lGame.Count - 1].First + ":" + lGame[lGame.Count - 1].Second);
-								Console.Beep(2000, 1000);
-								Console.ReadLine();
-								return;
-							}
-						} else if (intBoneyard == lBoneyard.Count && intBoneyard > 0) { // если ход не сделан
-							Console.WriteLine("!!!!!!!!Надо было добрать!!!!!! " + MFPlayer.PlayerName);
-							Console.ReadLine();
-							return;
-						}
-
-						if (!blnFRes && !blnSRes) // рыба
-							efFinish = EFinish.Lockdown;
-						else if (blnFRes) // если нет домино, то я выиграл
-							if (MFPlayer.GetCount() == 0) efFinish = EFinish.First;
-
-
-					} else { // кто ходит? ---- Ходит вторый игрок
-						if (PrintOutput) {
-							Console.ForegroundColor = ConsoleColor.Yellow;
-							Console.WriteLine();
-							Console.WriteLine("*************Шаг #" + intGameStep + " " + MSPlayer.PlayerName);
-							Console.ForegroundColor = ConsoleColor.White;
-						}
-
-						// количество взятых доминушек
-						intLastTaken = intTaken;
-						intTaken = 0;
-						// ход первого игрока
-						intBoneyard = lBoneyard.Count;
-						blnSRes = MSPlayer.MakeStep(out sb, out blnEnd);
-						// если ход сделан
-						if (blnSRes) {
-							// пристраиваем доминушку
-							if (SetBone(sb, blnEnd) == false) {
-								Console.WriteLine("!!!!!!!!Нельзя пристроить кость {0}:{1}!!!!!! {2}", sb.First, sb.Second, MSPlayer.PlayerName);
-								Console.ReadLine();
-								return;
-							}
-						}
-						// если ход не сделан
-						else if (intBoneyard == lBoneyard.Count && intBoneyard > 0) {
-							Console.WriteLine("!!!!!!!!Надо было добрать!!!!!! " + MSPlayer.PlayerName);
-							Console.ReadLine();
-							return;
-						}
-
-						if (!blnFRes && !blnSRes)
-							// рыба
-							efFinish = EFinish.Lockdown;
-						else if (blnSRes)
-							// если нет домино, то я выиграл
-							if (MSPlayer.GetCount() == 0) efFinish = EFinish.Second;
-					}
-					// после хода вывести данные на столе--------------------------------------------------------
-					if (PrintOutput) {
-						PrintAll(lGame);
-						Console.ForegroundColor = ConsoleColor.Cyan;
-						Console.WriteLine("ИГРОК " + MFPlayer.PlayerName);
-						MFPlayer.PrintAll();
-						Console.ForegroundColor = ConsoleColor.Magenta;
-						Console.WriteLine("ИГРОК " + MSPlayer.PlayerName);
-						MSPlayer.PrintAll();
-						Console.ReadKey();
-					}
-
-					// будет ходить другой игрок
-					blnFirst = !blnFirst;
-					intBoneyard = lBoneyard.Count;
-					intGameStep += 1;
-				} while (efFinish == EFinish.Play);
-				// результат текущей игры
-
-				if (PrintOutput) Console.WriteLine(arrFinishMsg[(int)efFinish]);
-				//Console.WriteLine(MFPlayer.GetScore() + "\t:\t" + MSPlayer.GetScore());
-				//Console.ReadLine();
-				sum1 += MFPlayer.GetScore();
-				sum2 += MSPlayer.GetScore();
+			} else if (intBoneyard == lBoneyard.Count && intBoneyard > 0) { // если ход не сделан
+				Console.WriteLine("!!!!!!!!Надо было добрать!!!!!! " + first.PlayerName);
+				Console.ReadLine();
+				return false;
 			}
 
-			Console.WriteLine("\n\nТурниров сыграно: " + COUNT_OF_MATCHES_FOR_TEST / 20.0);
+			if (!stepIsDone && !prevStepIsDone) { // рыба
+				efFinish = EFinish.Lockdown;
+				return false;
+			} else if (stepIsDone && first.GetCount() == 0) efFinish = EFinish.First;
 
-			Console.WriteLine("\nResult: \n{0}:\t{1}\t=\t{2}", wins1, wins2, Math.Round(wins1 / (wins1 + wins2), 4) * 100);
-			Console.Beep(200, 500);
-			Console.ReadLine();
+			prevStepIsDone = stepIsDone;
+
+			Score1 = first.GetScore();
+			Score2 = second.GetScore();
+
+			return true;
 		}
 
-		internal static double[] StartBattle (Player first, Player second, int RoundsCount) {
-			MFPlayer = first;
-			MSPlayer = second;
 
-			MMain();
-
-			return new double[] { sum1, sum2 };
-		}
 
 		//***********************************************************************
 		// Инициализация игры
 		//***********************************************************************
 		private static void Initialize () {
 			SBone sb;
+
+			stepsCount = 0;
+			Score1 = 0;
+			Score2 = 0;
+
+			prevStepIsDone = true;
+
 
 			// Очищаем коллекции в этом модуле
 			lBoneyard = new List<SBone>();
@@ -246,9 +133,10 @@ namespace VisualDomino {
 				}
 
 			// Инициализация игроков
-			MFPlayer.Initialize();
-			MSPlayer.Initialize();
+			first.Initialize();
+			second.Initialize();
 		}
+
 		public struct SBone {
 			public ushort First;
 			public ushort Second;
@@ -257,6 +145,10 @@ namespace VisualDomino {
 				ushort shrTemp = First;
 				First = Second;
 				Second = shrTemp;
+			}
+
+			public bool hasSpot (int s) {
+				return First == s || Second == s;
 			}
 		}
 
@@ -277,8 +169,6 @@ namespace VisualDomino {
 			sb = lBoneyard[intN];
 
 			lBoneyard.RemoveAt(intN);// удаляем ее из базара
-			if (PrintOutput)
-				Console.WriteLine("Взяли из базара: " + sb.First + ":" + sb.Second + " ");
 			return true;
 		}
 
@@ -305,10 +195,12 @@ namespace VisualDomino {
 		public static void GetHands () {
 			SBone sb;
 			for (int intC = 0; intC < conStartCount; intC++) {
-				if (GetFromShop(out sb)) MFPlayer.AddItem(sb);
+				if (GetFromShop(out sb))
+					first.AddItem(sb);
 				intTaken = 0;
 
-				if (GetFromShop(out sb)) MSPlayer.AddItem(sb);
+				if (GetFromShop(out sb))
+					second.AddItem(sb);
 				intTaken = 0;
 			}
 		}
@@ -355,5 +247,32 @@ namespace VisualDomino {
 		}
 
 
+	}
+
+	public class State {
+		public List<MTable.SBone> table;
+		public List<MTable.SBone> FHand;
+		public List<MTable.SBone> SHand;
+		
+		public int FScore, SScore, BoneyardCount;
+
+		public State (List<MTable.SBone> lGame, List<MTable.SBone> lHand1, List<MTable.SBone> lHand2, int Score1, int Score2) {
+			this.BoneyardCount = 29 - lGame.Count - lHand1.Count - lHand2.Count;
+
+			this.table = CloneList(lGame);
+
+			this.FHand = CloneList(lHand1);
+			this.SHand = CloneList(lHand2);
+
+			this.FScore = Score1;
+			this.SScore = Score2;
+		}
+
+		private List<MTable.SBone> CloneList(List<MTable.SBone> list) {
+			var result = new List<MTable.SBone>(list.Count);
+			foreach(var tile in list)
+				result.Add(tile);
+			return result;
+		}
 	}
 }

@@ -1,6 +1,7 @@
+using System;
 using System.Collections.Generic;
 
-namespace DominoC {
+namespace VisualDomino{
 	//========//
 	//ВНИМАНИЕ//
 	//========//
@@ -9,63 +10,12 @@ namespace DominoC {
 	//Советую всё-таки переписать код самостоятельно, опять же попереименовывать переменные, 
 	//подчистить комментарии, разобраться в нём.
 	//Отсылка одинаковых ботов будет лютой подставой, товарищи :D
-	internal class MSPlayer {
-		public static string PlayerName = "Tutorial_bot";
-		private static List<MTable.SBone> _lHand;
-	
-		//===============//
-		//Готовые функции//
-		//===============//
-
-		//Инициализация игрока
-		public static void Initialize () {
-			_lHand = new List<MTable.SBone>();
-		}
-
-		//Вывод на экран
-		public static void PrintAll () {
-			MTable.PrintAll(_lHand);
-		}
-
-		//Возвращает количество костей домино в руке
-		public static int GetCount () {
-			return _lHand.Count;
-		}
-
-		//=======================//
-		//Разрабатываемые функции//
-		//=======================//
-
-		//Добавляет кость домино в руку
-		public static void AddItem (MTable.SBone sb) {
-			_lHand.Add(sb);
-		}
-
-		//Возвращает сумму очков на костях в руке
-		public static int GetScore () {
-			//Количество очков
-			int iScore = 0;
-			//Если в руке дупль 0/0 возвращаем 25 очков
-			if (_lHand.Count == 1) {
-				//Проверка на нулики
-				if (_lHand[0].First == 0 && _lHand[0].Second == 0)
-					//Возвращение очков
-					return 25;
-			}
-
-			//Подсчитываем сумму очков на костях
-			foreach (MTable.SBone sbone in _lHand)
-				iScore += sbone.First + sbone.Second;
-
-			//Возвращение очков
-			return iScore;
-		}
-
-		//Сделать ход
-
+	internal class Bot_Random : Player {
+		public new static string PlayerName = "Tutorial_bot";
+		
 		//Используется максимально примитивная логика: мы проходим по всем доминошкам в нашей руке
 		//и выставляем первую попавшуюся, которую можно пристроить
-		public static bool MakeStep (out MTable.SBone sb, out bool end) {
+		public override bool MakeStep (out MTable.SBone sb, out bool end) {
 			//Получаем состояние стола
 			List<MTable.SBone> lTableCondition = MTable.GetGameCollection();
 			//Кость на левом  конце цепочки
@@ -74,24 +24,24 @@ namespace DominoC {
 			MTable.SBone sRight = lTableCondition[lTableCondition.Count - 1];
 
 			//Просматриваем все домино в руке
-			for (int i = 0; i < _lHand.Count; ++i) {
+			for (int i = 0; i < lHand.Count; ++i) {
 				//Если её можно поставить слева
-				if (_lHand[i].Second == sLeft.First || _lHand[i].First == sLeft.First) {
+				if (lHand[i].Second == sLeft.First || lHand[i].First == sLeft.First) {
 					//То говорим, что мы выбираем её
-					sb = _lHand[i];
+					sb = lHand[i];
 					//Удаляем её из руки
-					_lHand.RemoveAt(i);
+					lHand.RemoveAt(i);
 					//Указываем куда мы её ставим
 					end = false;
 					//Заканчиваем ход
 					return true;
 				}
 				//Если её можно поставить справа
-				if (_lHand[i].Second == sRight.Second || _lHand[i].First == sRight.Second) {
+				if (lHand[i].Second == sRight.Second || lHand[i].First == sRight.Second) {
 					//То говорим, что мы выбираем её
-					sb = _lHand[i];
+					sb = lHand[i];
 					//Удаляем её из руки
-					_lHand.RemoveAt(i);
+					lHand.RemoveAt(i);
 					//Указываем куда мы её ставим
 					end = true;
 					//Заканчиваем ход
@@ -124,7 +74,7 @@ namespace DominoC {
 					return true;
 				}
 				//Если её нельзя положить на стол, то кладем её в руку
-				_lHand.Add(sbNew);
+				lHand.Add(sbNew);
 			}
 
 			//Если мы не можем сделать ход, то в данные параметры загоняем любую чушь, которую можно загнать
